@@ -1,2 +1,7 @@
-chainlit>=1.1.0
-groq
+streamlit>=1.30.0
+python-dotenv
+langchain-groq
+langchain-core
+langchain-community
+pandas
+sqlite3  # usually built-in, but safe to list
