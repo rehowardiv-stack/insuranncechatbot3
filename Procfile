@@ -1,1 +1,1 @@
-web: chainlit run main.py --port $PORT --host 0.0.0.0
+web: streamlit run main.py --server.port $PORT --server.headless true --server.enableCORS false --server.enableXsrfProtection false
