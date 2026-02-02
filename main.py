@@ -489,12 +489,16 @@ if st.session_state.get("show_admin", False) and st.session_state.admin_logged_i
     show_admin_dashboard()
     st.stop()
 
-# Premium header
+# Premium header + Impact verification
 st.markdown("""
 <div class="main-header">
     <h1>Home Insurance Assistant</h1>
     <p>Clear answers • Coverage comparisons • Personalized guidance</p>
 </div>
+
+<p style="font-size: 0.75rem; color: #9ca3af; text-align: center; margin: 1rem 0; opacity: 0.6;">
+Impact-Site-Verification: f2aacffd-dcf7-4f0f-84f8-0df56150dc65
+</p>
 """, unsafe_allow_html=True)
 
 # Quick Quote Form
