@@ -4,4 +4,3 @@ langchain-groq
 langchain-core
 langchain-community
 pandas
-sqlite3  # usually built-in, but safe to list
