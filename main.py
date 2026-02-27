@@ -10,6 +10,409 @@ from dotenv import load_dotenv
 import re
 import logging
 from datetime import datetime
+            "phone": lead.get("phone"),
+            "summary": lead.get("conversation_summary", "")[:120],
+        },
+        sort_keys=True,
+    )
+
+# ──────────────────────────────────────────────────────────────
+# Admin Dashboard (kept mostly as-is, minor layout polish)
+# ──────────────────────────────────────────────────────────────
+
+def show_admin_dashboard():
+    st.title("🔐 Admin Dashboard")
+    st.markdown(f"**Logged in as:** {ADMIN_USERNAME} • Last active: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    tab1, tab2, tab3 = st.tabs(["📊 Leads", "📈 Analytics", "⚙️ Settings"])
+    
+    with tab1:
+        st.header("Lead Management")
+        df = get_all_leads()
+        if not df.empty:
+            st.metric("Total Leads Captured", len(df))
+            col1, col2 = st.columns(2)
+            with col1:
+                interest_filter = st.selectbox("Filter by Interest Level", ["All", "High", "Medium", "Low"])
+            with col2:
+                date_filter = st.date_input("Filter by Date", value=None)
+            
+            if interest_filter != "All":
+                df = df[df['interest_level'] == interest_filter.lower()]
+            if date_filter:
+                df = df[df['timestamp'].str.contains(str(date_filter))]
+@@ -338,111 +365,189 @@ def show_admin_dashboard():
+        logs = pd.read_sql_query("SELECT * FROM admin_logs ORDER BY timestamp DESC LIMIT 30", conn)
+        conn.close()
+        if not logs.empty:
+            st.dataframe(logs, use_container_width=True, hide_index=True)
+        else:
+            st.info("No admin actions logged yet.")
+
+    if st.sidebar.button("🚪 Logout", type="primary"):
+        st.session_state.admin_logged_in = False
+        log_admin_action("logout")
+        st.rerun()
+
+# ──────────────────────────────────────────────────────────────
+# Page Config & Modern Styling
+# ──────────────────────────────────────────────────────────────
+
+st.set_page_config(
+    page_title="Home Insurance Assistant",
+    page_icon="🏠",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+st.markdown("""
+<style>
+    /* Premium header */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+
+    [data-testid="stAppViewContainer"] {
+        background: radial-gradient(circle at top right, #dbeafe 0%, #f8fbff 35%, #f7f7ff 70%, #eef2ff 100%);
+    }
+
+    .main-header {
+        position: relative;
+        text-align: center;
+        padding: 2.5rem 1rem;
+        background: linear-gradient(135deg, #f0f7ff 0%, #e0f2fe 100%);
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        padding: 3rem 2rem;
+        background: linear-gradient(130deg, rgba(37,99,235,0.95), rgba(79,70,229,0.95) 45%, rgba(14,165,233,0.92));
+        border-radius: 24px;
+        margin-bottom: 1.2rem;
+        box-shadow: 0 24px 40px rgba(37, 99, 235, 0.25);
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.22);
+    }
+
+    .main-header::before,
+    .main-header::after {
+        content: "";
+        position: absolute;
+        width: 320px;
+        height: 320px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.14);
+        filter: blur(2px);
+        z-index: 0;
+    }
+
+    .main-header::before { top: -170px; right: -90px; }
+    .main-header::after { bottom: -190px; left: -110px; }
+
+    .main-header h1, .main-header p, .trust-chip {
+        position: relative;
+        z-index: 1;
+        color: #fff;
+    }
+
+    .main-header h1 {
+        color: #1e40af;
+        font-size: 2.8rem;
+        margin: 0 0 0.5rem 0;
+        font-size: clamp(2.2rem, 3.8vw, 3.4rem);
+        margin: 0;
+        letter-spacing: -0.03em;
+        font-weight: 800;
+    }
+
+    .main-header p {
+        font-size: 1.1rem;
+        opacity: 0.95;
+        margin: 0.7rem 0 0;
+    }
+
+    .trust-chip {
+        display: inline-block;
+        margin-top: 1rem;
+        padding: 0.45rem 0.9rem;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.82rem;
+        background: rgba(255,255,255,0.18);
+        border: 1px solid rgba(255,255,255,0.35);
+    }
+
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 0.9rem;
+        margin: 0.8rem 0 1.4rem;
+    }
+
+    .feature-card {
+        padding: 1rem;
+        border-radius: 16px;
+        background: rgba(255,255,255,0.72);
+        border: 1px solid rgba(148,163,184,0.22);
+        backdrop-filter: blur(8px);
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    .feature-card strong {
+        display: block;
+        margin-bottom: 0.25rem;
+        color: #1e3a8a;
+        font-size: 1.25rem;
+        margin: 0;
+    }
+
+    /* Chat styling */
+    .feature-card span {
+        color: #334155;
+        font-size: 0.92rem;
+    }
+
+    .stChatMessage {
+        border-radius: 18px !important;
+        padding: 1.1rem 1.4rem !important;
+        margin-bottom: 1rem !important;
+        padding: 1rem 1.2rem !important;
+        margin-bottom: 0.9rem !important;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+        border: 1px solid rgba(148,163,184,0.16);
+    }
+
+    .stChatMessage.user {
+        background-color: #dbeafe !important;
+        border-radius: 18px 18px 4px 18px !important;
+        background: linear-gradient(145deg, #dbeafe 0%, #c7d2fe 100%) !important;
+        border-radius: 18px 18px 6px 18px !important;
+    }
+
+    .stChatMessage.assistant {
+        background-color: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 18px 18px 18px 4px !important;
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%) !important;
+        border-radius: 18px 18px 18px 6px !important;
+    }
+
+    /* Sidebar polish */
+    section[data-testid="stSidebar"] {
+        background-color: #f9fafb !important;
+        border-right: 1px solid #e5e7eb;
+        background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 45%, #312e81 100%) !important;
+        border-right: 1px solid rgba(148,163,184,0.2);
+    }
+    .sidebar .stButton > button {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 0.7rem 1rem;
+        font-weight: 600;
+        margin-bottom: 0.8rem;
+        width: 100%;
+
+    section[data-testid="stSidebar"] * {
+        color: #e2e8f0 !important;
+    }
+    .sidebar .stButton > button:hover {
+        background: #2563eb;
+
+    section[data-testid="stSidebar"] .stButton > button {
+        background: linear-gradient(90deg, #38bdf8, #6366f1) !important;
+        color: #ffffff !important;
+        border: 0 !important;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+        box-shadow: 0 6px 16px rgba(56, 189, 248, 0.35);
+    }
+
+    /* Footer */
+    .footer-col {
+        text-align: center;
+        font-size: 0.95rem;
+        color: #4b5563;
+        line-height: 1.4;
+        color: #334155;
+        line-height: 1.45;
+        background: rgba(255,255,255,0.75);
+        border: 1px solid rgba(148,163,184,0.2);
+        padding: 0.9rem 0.75rem;
+        border-radius: 12px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ──────────────────────────────────────────────────────────────
+# Sidebar
+# ──────────────────────────────────────────────────────────────
+
+with st.sidebar:
+    st.markdown("""
+    <div style="text-align: center; padding: 1rem 0;">
+        <h1 style="font-size: 2.5rem; margin: 0;">🏠</h1>
+        <h2 style="margin: 0.5rem 0 1rem 0;">Insurance Assistant</h2>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.divider()
+    
+    with st.expander("🔒 Admin Access", expanded=False):
+        if not st.session_state.admin_logged_in:
+            admin_pw = st.text_input("Admin Password", type="password")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Login", use_container_width=True):
+                    if check_admin_password(admin_pw):
+@@ -467,128 +572,138 @@ with st.sidebar:
+    if st.button("🔄 Start New Chat", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.session_id = str(uuid.uuid4())
+        st.rerun()
+    
+    if st.button("📝 Request Quick Quote", use_container_width=True):
+        st.session_state.show_quick_form = True
+        st.rerun()
+    
+    st.divider()
+    
+    st.caption("""
+    **Important:** This assistant provides general information only.  
+    For official quotes or advice, consult a licensed insurance professional.
+    """)
+    st.caption("Your privacy is protected • Data handled securely")
+
+# ──────────────────────────────────────────────────────────────
+# Main Area
+# ──────────────────────────────────────────────────────────────
+
+if st.session_state.get("show_admin", False) and st.session_state.admin_logged_in:
+    show_admin_dashboard()
+    st.stop()
+
+# Premium header + Impact verification (placed early for crawlers)
+# Premium header + feature highlights + Impact verification
+st.markdown("""
+<div class="main-header">
+    <h1>Home Insurance Assistant</h1>
+    <p>Clear answers • Coverage comparisons • Personalized guidance</p>
+    <p>Beautifully simple guidance for coverage, savings, and smarter protection.</p>
+    <div class="trust-chip">Trusted digital insurance concierge • Responses in seconds</div>
+</div>
+<div class="feature-grid">
+    <div class="feature-card"><strong>✨ Personalized guidance</strong><span>Clear coverage recommendations tailored to your needs.</span></div>
+    <div class="feature-card"><strong>⚡ Instant quote readiness</strong><span>Get prepared quickly with details insurers care about most.</span></div>
+    <div class="feature-card"><strong>🔐 Privacy-first design</strong><span>Your contact details are handled securely and with care.</span></div>
+    <div class="feature-card"><strong>🧠 Expert-style answers</strong><span>Understand policies, exclusions, and claims with confidence.</span></div>
+</div>
+
+<!-- Impact verification - must be in body text, visible to crawlers -->
+<div style="font-size: 12px; color: #ccc; text-align: center; margin: 10px 0;">
+<div style="font-size: 12px; color: #94a3b8; text-align: center; margin: 8px 0 14px;">
+Impact-Site-Verification: f2aacffd-dcf7-4f0f-84f8-0df56150dc65
+</div>
+""", unsafe_allow_html=True)
+
+# Quick Quote Form
+if st.session_state.show_quick_form:
+    st.subheader("📋 Quick Quote Request")
+    with st.form("quick_quote"):
+        col1, col2 = st.columns(2)
+        with col1:
+            name = st.text_input("Full Name")
+            email = st.text_input("Email Address")
+        with col2:
+            location = st.text_input("City, State")
+            home_value = st.selectbox(
+                "Approximate Home Value",
+                ["Under $200,000", "$200,000–$500,000", "$500,000–$1,000,000", "Over $1,000,000", "Not sure"]
+            )
+        
+        if st.form_submit_button("Submit Request", type="primary"):
+            if email and "@" in email:
+            if email and is_valid_email(email):
+                lead = {
+                    'name': name,
+                    'email': email,
+                    'location': location,
+                    'home_value_range': home_value,
+                    'interest_level': 'high',
+                    'conversation_summary': 'Quick quote form submission'
+                }
+                save_lead_to_db(lead)
+                st.session_state.user_leads.append(lead)
+                st.session_state.user_leads.append(build_lead_signature(lead))
+                st.success("Thank you! A representative will reach out soon with personalized options.")
+                st.session_state.show_quick_form = False
+                st.rerun()
+            else:
+                st.error("Please provide a valid email address")
+
+# Chat history
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# Chat input
+if prompt := st.chat_input("Ask about coverage, quotes, claims..."):
+    prompt = prompt.strip()
+    if len(prompt) < 3:
+        st.warning("Please type a more detailed question")
+    elif len(prompt) > 1000:
+        st.warning("Message too long – please shorten it")
+    else:
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        with st.chat_message("assistant"):
+            with st.spinner("Preparing response..."):
+                try:
+                    response = chain.invoke(
+                        {"input": prompt},
+                        config={"configurable": {"session_id": st.session_state.session_id}}
+                    )
+                    reply = response.content
+                    
+                    contact = extract_contact_info(prompt + " " + reply)
+                    if contact['email'] or contact['phone']:
+                        st.success("Contact information received – we'll follow up shortly.")
+                        lead = analyze_conversation_for_lead(st.session_state.messages)
+                        lead.update(contact)
+                        save_lead_to_db(lead)
+                        signature = build_lead_signature(lead)
+                        if signature not in st.session_state.user_leads:
+                            save_lead_to_db(lead)
+                            st.session_state.user_leads.append(signature)
+                    
+                    if any(w in prompt.lower() for w in ["quote", "cost", "price", "premium", "rate"]):
+                        if not (contact['email'] or contact['phone']):
+                            reply += "\n\n💡 For a personalized quote, feel free to share your email or phone."
+                    
+                    st.markdown(reply)
+                    st.session_state.messages.append({"role": "assistant", "content": reply})
+                
+                except Exception as e:
+                    logger.error(f"Response error: {e}")
+                    st.error("Sorry, something went wrong. Please try again or use the quick quote form.")
+                    st.session_state.messages.append({"role": "assistant", "content": "I apologize for the issue. Try rephrasing or use the form above."})
+
+# Footer
+st.divider()
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown('<div class="footer-col">🔒 Secure & Private<br>Your information is protected</div>', unsafe_allow_html=True)
+with col2:
+    st.markdown('<div class="footer-col">📞 Live Support<br>9am–6pm CST, Mon–Fri</div>', unsafe_allow_html=True)
+with col3:
+    if st.session_state.admin_logged_in:
+        st.markdown('<div class="footer-col">👑 Admin Mode Active</div>', unsafe_allow_html=True)
+        if st.button("View Dashboard", type="secondary"):
+            st.session_state.show_admin = True
+
 from typing import Optional, Dict, List
 import pandas as pd
 import sqlite3
